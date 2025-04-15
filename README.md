@@ -11,7 +11,7 @@ To begin, you will need the following julia packages and their dependencies adde
 	GLMakie.jl
 	ApproxFun.jl
 	
-Once these are added to your julia environment, you will need to open the main.jl file. The first few lines give you the option to produce either a proof or simply a numerical computation of the two-cycle of (5). Then you have the option to choose which plots will be created and if you want to save them or not. The current plot options are
+Once these are added to your julia environment, you will need to open the main.jl file. The first few lines give you the option to produce either a proof or simply a numerical computation of the two-cycle of IDE (1). Then you have the option to choose which plots will be created and if you want to save them or not. The current plot options are
 
 	__manif_plot__: Plot the approximate manifolds of the four-dimensional ODE (5)
 	__rescaled_bvp_plot: Plot the approximate solution of the rescaled BVP (6)
