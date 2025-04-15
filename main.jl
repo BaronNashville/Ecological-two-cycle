@@ -19,10 +19,10 @@ using RadiiPolynomial, GLMakie
 import ApproxFun.Fun
 
 # Do you want to prove the result?
-__proof__ = false
+__proof__ = true
 
 # Do you want the plots saved and where
-__save__ = true
+__save__ = false
 __save_location__ = "../Logistic Figures/"
 
 
