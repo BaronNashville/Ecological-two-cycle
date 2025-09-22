@@ -27,22 +27,22 @@ __save_location__ = "../Logistic Figures/"
 
 
 # Which plots do you want shown
-__manif_plot__ = true
-__rescaled_bvp_plot__ = true
-__original_bvp_plot__ = true
-__N_M_plot__ = true
-__combined_plot__ = true
+__manif_plot__ = false
+__rescaled_bvp_plot__ = false
+__original_bvp_plot__ = false
+__N_M_plot__ = false
+__combined_plot__ = false
 
 
 # Setting up the equation parameters
 σ::Float64 = 10;
-r::Float64 = 2.2;
+ρ::Float64 = 2.2;
 
 # Setting up the numerics parameters
 N_manif_compute = [18,11];  # Number of Taylor coefficients for the computation of the manifold parameterization
 N_cheb_compute = 20; # Number of Chebyshev coefficients for the computation of the connecting orbit
 
-N_manif_proof = [30,30];  # Number of Taylor coefficients for the proof of the manifold parameterization
+N_manif_proof = [30,20];  # Number of Taylor coefficients for the proof of the manifold parameterization
 N_cheb_proof = 500; # Number of Chebyshev coefficients for the proof of the connecting orbit
 
 ν::Float64 = 1.05
@@ -54,19 +54,19 @@ manifold_num_points::Vector{Int64} = [1000,1000]; # How many points in time are 
 
 vector_length::Vector{Float64} = [1, 1];    # Length of eigenvectors for parameterization method
 
-if r <= 2 || r >= sqrt(5)
-    error("Chosen r does not satisfy the requirements")
+if ρ <= 2 || ρ >= sqrt(5)
+    error("Chosen ρ does not satisfy the requirements")
 end
 
 # Two cycle of the logistic map where n₋ < n₊
-n₋ = (r+2 - sqrt(r^2 -4))/(2*r);
-n₊ = (r+2 + sqrt(r^2 -4))/(2*r);
+n₋ = (ρ+2 - sqrt(ρ^2 -4))/(2*ρ);
+n₊ = (ρ+2 + sqrt(ρ^2 -4))/(2*ρ);
 
 println("n₋ = " * string(n₋)  * "\nn₊ = " * string(n₊));
 
 # Evaluating the derivative of the logistic map at n₋ and n₊
-n₋_prime = logistic_prime(n₋, r);
-n₊_prime = logistic_prime(n₊, r);    
+n₋_prime = logistic_prime(n₋, ρ);
+n₊_prime = logistic_prime(n₊, ρ);    
 
 println("n₋_prime = " * string(n₋_prime) * "\nn₊_prime = " * string(n₊_prime));
 println();
@@ -74,7 +74,7 @@ println();
 # Stable manifold
 equilibrium₂ = [n₊; 0; n₋; 0];
 
-A₁ = Df(equilibrium₂, σ, r);
+A₁ = Df(equilibrium₂, σ, ρ);
 
 λ₁ = -sqrt(σ^2*(1-sqrt(n₋_prime*n₊_prime)));
 ξ₁ = [(-sqrt(Complex(n₋_prime))/(sqrt(complex(n₊_prime))*λ₁)).re; -sqrt(n₋_prime/n₊_prime); 1/λ₁; 1];
@@ -98,7 +98,7 @@ S_manif_proof = (Taylor(N_manif_proof[1]) ⊗ Taylor(N_manif_proof[2]))^4; # 2-i
 
 a = zeros(S_manif_compute);
 
-a, = newton!((F, DF, a) -> (F_manif!(F, a, N_manif_compute, σ, r, equilibrium₂, λ₁, λ₂, ξ₁, ξ₂), DF_manif!(DF, a, N_manif_compute, σ, r, equilibrium₂, λ₁, λ₂, ξ₁, ξ₂)), a, tol = 1e-15)
+a, = newton!((F, DF, a) -> (F_manif!(F, a, N_manif_compute, σ, ρ, equilibrium₂, λ₁, λ₂, ξ₁, ξ₂), DF_manif!(DF, a, N_manif_compute, σ, ρ, equilibrium₂, λ₁, λ₂, ξ₁, ξ₂)), a, tol = 1e-15)
 
 a₁ = component(a,1)
 a₂ = component(a,2)
@@ -111,7 +111,6 @@ println("a₃(N₁,0) = " * string(a₃[(N_manif_compute[1],0)]) * ", a₃(0,N�
 println("a₄(N₁,0) = " * string(a₄[(N_manif_compute[1],0)]) * ", a₄(0,N₂) = " * string(a₄[(0,N_manif_compute[2])]))
 println()
 
-
 manifold_data = generate_manifold_data(a, manifold_range, manifold_num_points)
 reflected_manifold_data = reflection_data(manifold_data)
 
@@ -119,14 +118,14 @@ distance, location = distance_from_fixed_points(manifold_data)
 
 θ = get_theta(a, manifold_range, manifold_num_points, location)
 
-θ,L = candidate_finder([θ[1],θ[2],0], a, σ, r)
+θ,L = candidate_finder([θ[1],θ[2],0], a, σ, ρ)
 
 println("L = " * string(L))
 println("θ = " * string(θ))
 println()
 
 #Numerically integrating the candidate solution
-numerical_orbit_data, numerical_orbit_time = integrate_point(a(θ[1],θ[2]), σ, r, (L,0.0))
+numerical_orbit_data, numerical_orbit_time = integrate_point(a(θ[1],θ[2]), σ, ρ, (L,0.0))
 
 S_orbit_compute = ParameterSpace() × ParameterSpace()^2 × Chebyshev(N_cheb_compute)^4
 S_orbit_proof = ParameterSpace() × ParameterSpace()^2 × Chebyshev(N_cheb_proof)^4
@@ -141,7 +140,7 @@ X.coefficients[:] = [L/2;θ;
     chebyshev_multiplier .* Fun(t -> interpolation(t, numerical_orbit_data[4,:], collect(LinRange(-1,1, length(numerical_orbit_data[1,:])))), N_cheb_compute+1).coefficients;
     ]
 
-X, = newton!((F, DF, X) -> (F_orbit!(F, X, a, N_cheb_compute, σ, r), DF_orbit!(DF, X, a, N_cheb_compute, σ, r)), X, tol = 1e-15)
+X, = newton!((F, DF, X) -> (F_orbit!(F, X, a, N_cheb_compute, σ, ρ), DF_orbit!(DF, X, a, N_cheb_compute, σ, ρ)), X, tol = 1e-15)
 
 L = component(X,1)[1]
 θ = component(X,2)[1:2]
@@ -164,7 +163,7 @@ if __proof__
     X = project(X, S_orbit_proof)
 
     println("Beginning Manifold Proof")
-    r_min, r_max = manif_proof(a, N_manif_proof);
+    r_min, r_max = manif_proof(a, weights[4:7], N_manif_proof);
 
     println("Beginning Connecting Orbit Proof")
     orbit_proof(X, a, weights, N_cheb_proof, ν, r_min, r_star)
@@ -181,7 +180,7 @@ if __manif_plot__
     manif_plot = Figure(size = (1000, 600))
 
     manif_ax = Axis3(manif_plot[1,1],
-        title = L"Stable and unstable manifolds attached to \tilde{x}^{(\pm)} of (5) with parameters $σ = 10$ and $r = 2.2$",
+        title = L"Stable and unstable manifolds attached to \tilde{x}^{(\pm)} of (5) with parameters $σ = 10$ and $ρ = 2.2$",
         titlesize = 20,
         xlabel = L"$x_1$",
         xlabelsize = 20,
@@ -243,7 +242,7 @@ if __rescaled_bvp_plot__
     rescaled_bvp_plot = Figure(size = (1000, 600))
 
     rescaled_bvp_ax = Axis(rescaled_bvp_plot[1,1],
-        title = L"\text{Solution to rescaled projected BVP (6) with parameters $σ = 10$ and $r = 2.2$}",
+        title = L"\text{Solution to rescaled projected BVP (6) with parameters $σ = 10$ and $ρ = 2.2$}",
         titlesize = 20,
         xlabel = L"$t$",
         xlabelsize = 20,
@@ -290,7 +289,7 @@ if __original_bvp_plot__
     original_bvp_plot = Figure(size = (1000, 600))
 
     original_bvp_ax = Axis(original_bvp_plot[1,1],
-        title = L"\text{Solution to projected BVP (6) with parameters $σ = 10$ and $r = 2.2$}",
+        title = L"\text{Solution to projected BVP (6) with parameters $σ = 10$ and $ρ = 2.2$}",
         titlesize = 20,
         xlabel = L"$t$",
         xlabelsize = 20,
@@ -337,7 +336,7 @@ if __N_M_plot__
     N_M_plot = Figure(size = (1000, 600))
 
     n_m_ax = Axis(N_M_plot[1,1],
-        title = L"Construction of $\bar{N}(t)$ and $\bar{M}(t)$ for $t \ge 0$ with parameters $σ = 10$ and $r = 2.2$",
+        title = L"Construction of $\bar{N}(t)$ and $\bar{M}(t)$ for $t \ge 0$ with parameters $σ = 10$ and $ρ = 2.2$",
         titlesize = 20,
         xlabel = L"$t$",
         xlabelsize = 20,
@@ -386,7 +385,7 @@ if __combined_plot__
     combined_plot = Figure(size = (1600, 600))
 
     ODEax = Axis3(combined_plot[1,1],
-        title = L"\text{Connecting orbit between \tilde{x}^{(\pm)} in ODE (5) with parameters $σ = 10$ and $r = 2.2$}",
+        title = L"\text{Connecting orbit between \tilde{x}^{(\pm)} in ODE (5) with parameters $σ = 10$ and $ρ = 2.2$}",
         titlesize = 20,
         xlabel = L"$x_1$",
         xlabelsize = 20,
@@ -452,7 +451,7 @@ if __combined_plot__
 
 
     IDEax = Axis(combined_plot[1,3],
-        title = L"Two-cycle of IDE (1) with parameters $σ = 10$ and $r = 2.2$",
+        title = L"Two-cycle of IDE (1) with parameters $σ = 10$ and $ρ = 2.2$",
         titlesize = 20,
         xlabel = L"$t$",
         xlabelsize = 20,

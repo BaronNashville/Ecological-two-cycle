@@ -6,7 +6,7 @@
 using RadiiPolynomial, DifferentialEquations, IntervalArithmetic
 
 # Implementation of F
-function F_manif!(F_manif::Sequence, a::Sequence, N::Vector{Int}, σ::Interval{Float64}, r::Interval{Float64}, equilibrium::Vector{Interval{Float64}}, λ₁::Interval{Float64}, λ₂::Interval{Float64}, ξ₁::Vector{Interval{Float64}}, ξ₂::Vector{Interval{Float64}})
+function F_manif!(F_manif::Sequence, a::Sequence, N::Vector{Int}, σ::Interval{Float64}, ρ::Interval{Float64}, equilibrium::Vector{Interval{Float64}}, λ₁::Interval{Float64}, λ₂::Interval{Float64}, ξ₁::Vector{Interval{Float64}}, ξ₂::Vector{Interval{Float64}})
     #Extracting what space we are in and initializaing Φ
     s = space(component(a,1));
     Φ = zeros(Interval{Float64},s^4);
@@ -31,7 +31,7 @@ function F_manif!(F_manif::Sequence, a::Sequence, N::Vector{Int}, σ::Interval{F
     Φ₄ = component(Φ, 4);
 
     #Computing Φ for higher order terms
-    Φ!(Φ, a, σ, r);
+    Φ!(Φ, a, σ, ρ);
 
     #Computing the sequence operator D = α₁λ₁ + α₂λ₂
     D₁ = zeros(Interval{Float64},s,s);
@@ -70,7 +70,7 @@ function F_manif!(F_manif::Sequence, a::Sequence, N::Vector{Int}, σ::Interval{F
 end
 
 # Implementation of DF
-function DF_manif!(DF_manif::LinearOperator, a::Sequence, N::Vector{Int}, σ::Interval{Float64}, r::Interval{Float64}, equilibrium::Vector{Interval{Float64}}, λ₁::Interval{Float64}, λ₂::Interval{Float64}, ξ₁::Vector{Interval{Float64}}, ξ₂::Vector{Interval{Float64}})
+function DF_manif!(DF_manif::LinearOperator, a::Sequence, N::Vector{Int}, σ::Interval{Float64}, ρ::Interval{Float64}, equilibrium::Vector{Interval{Float64}}, λ₁::Interval{Float64}, λ₂::Interval{Float64}, ξ₁::Vector{Interval{Float64}}, ξ₂::Vector{Interval{Float64}})
     DF_manif .= interval(0)
 
     s = space(component(a,1))
@@ -88,7 +88,7 @@ function DF_manif!(DF_manif::LinearOperator, a::Sequence, N::Vector{Int}, σ::In
     D = λ₁*D₁ + λ₂*D₂
 
     DΦ = zeros(Interval{Float64},s^4, s^4)
-    DΦ!(DΦ, a, σ, r)
+    DΦ!(DΦ, a, σ, ρ)
 
     # Setting the higher order terms
     component(DF_manif,1,1).coefficients[:] = -component(DΦ,1,1).coefficients[:] + D.coefficients[:]
@@ -154,7 +154,7 @@ function DF_manif!(DF_manif::LinearOperator, a::Sequence, N::Vector{Int}, σ::In
 end
 
 # Implementation of Φ
-function Φ!(Φ::Sequence, a::Sequence, σ::Interval{Float64}, r::Interval{Float64})
+function Φ!(Φ::Sequence, a::Sequence, σ::Interval{Float64}, ρ::Interval{Float64})
     #Setting all componends of Φ to be 0
     Φ .= interval(0);
 
@@ -171,13 +171,13 @@ function Φ!(Φ::Sequence, a::Sequence, σ::Interval{Float64}, r::Interval{Float
 
     #Setting the appropriate values for the higher order terms
     Φ₁[:] = project(a₂, space(Φ₁))[:];
-    Φ₂[:] = project(σ^2*(a₁ - (interval(1)+r)*a₃ + r*(a₃*a₃)), space(Φ₂))[:];
+    Φ₂[:] = project(σ^2*(a₁ - (interval(1)+ρ)*a₃ + ρ*(a₃*a₃)), space(Φ₂))[:];
     Φ₃[:] = project(a₄, space(Φ₃))[:];
-    Φ₄[:] = project(σ^2*(a₃ - (interval(1)+r)*a₁ + r*(a₁*a₁)), space(Φ₄))[:];
+    Φ₄[:] = project(σ^2*(a₃ - (interval(1)+ρ)*a₁ + ρ*(a₁*a₁)), space(Φ₄))[:];
 end
 
 # Implementation of DΦ
-function DΦ!(DΦ::LinearOperator, a::Sequence, σ::Interval{Float64}, r::Interval{Float64})
+function DΦ!(DΦ::LinearOperator, a::Sequence, σ::Interval{Float64}, ρ::Interval{Float64})
     # Initialize DΦ to be zero, then fill in the correct blocks
     DΦ .= interval(0)
 
@@ -190,16 +190,16 @@ function DΦ!(DΦ::LinearOperator, a::Sequence, σ::Interval{Float64}, r::Interv
     component(DΦ, 1, 2).coefficients[:] = interval.(project(I, s, s).coefficients[:])
 
     component(DΦ, 2, 1).coefficients[:] = σ^2*interval.(project(I, s, s).coefficients[:])
-    component(DΦ, 2, 3).coefficients[:] = -σ^2*(interval(1)+r)*interval.(project(I, s, s).coefficients[:]) + σ^2* interval(2)*r*interval.(project(Multiplication(a₃), s, s).coefficients[:])
+    component(DΦ, 2, 3).coefficients[:] = -σ^2*(interval(1)+ρ)*interval.(project(I, s, s).coefficients[:]) + σ^2* interval(2)*ρ*interval.(project(Multiplication(a₃), s, s).coefficients[:])
 
     component(DΦ, 3, 4).coefficients[:] = interval.(project(I, s, s).coefficients[:])
 
-    component(DΦ, 4, 1).coefficients[:] = -σ^2*(interval(1)+r)*interval.(project(I, s, s).coefficients[:]) + σ^2* interval(2)*r*interval.(project(Multiplication(a₁), s, s).coefficients[:])
+    component(DΦ, 4, 1).coefficients[:] = -σ^2*(interval(1)+ρ)*interval.(project(I, s, s).coefficients[:]) + σ^2* interval(2)*ρ*interval.(project(Multiplication(a₁), s, s).coefficients[:])
     component(DΦ, 4, 3).coefficients[:] = σ^2*interval.(project(I, s, s).coefficients[:])
 end
 
 # Implementation of ℱ
-function F_orbit!(F_orbit::Sequence, X::Sequence, a::Sequence, N_cheb::Int, σ::Interval{Float64}, r::Interval{Float64}, δ::Interval{Float64})
+function F_orbit!(F_orbit::Sequence, X::Sequence, a::Sequence, N_cheb::Int, σ::Interval{Float64}, ρ::Interval{Float64}, δ::Interval{Float64})
     F_orbit .= interval(0)
 
     L = component(X,1)[1]
@@ -212,7 +212,7 @@ function F_orbit!(F_orbit::Sequence, X::Sequence, a::Sequence, N_cheb::Int, σ::
     u₄ = component(u,4)
 
     Φ = zeros(Interval{Float64}, Chebyshev(order(u₁)+1)^4)
-    Φ!(Φ, u, σ, r)
+    Φ!(Φ, u, σ, ρ)
 
     Φ₁ = component(Φ,1)
     Φ₂ = component(Φ,2)
@@ -265,7 +265,7 @@ function F_orbit!(F_orbit::Sequence, X::Sequence, a::Sequence, N_cheb::Int, σ::
 end
 
 # Implemental of Dℱ
-function DF_orbit!(DF_orbit::LinearOperator, X::Sequence, a::Sequence, N_cheb::Int, σ::Interval{Float64}, r::Interval{Float64}, δ::Interval{Float64})
+function DF_orbit!(DF_orbit::LinearOperator, X::Sequence, a::Sequence, N_cheb::Int, σ::Interval{Float64}, ρ::Interval{Float64}, δ::Interval{Float64})
     DF_orbit .= interval(0)
 
     L = component(X,1)[1]
@@ -278,10 +278,10 @@ function DF_orbit!(DF_orbit::LinearOperator, X::Sequence, a::Sequence, N_cheb::I
     u₄ = component(u,4)
 
     Φ = zeros(Interval{Float64}, Chebyshev(order(u₁)+1)^4)
-    Φ!(Φ, project(u, Chebyshev(N_cheb+1)^4), σ, r)
+    Φ!(Φ, project(u, Chebyshev(N_cheb+1)^4), σ, ρ)
 
     DΦ = zeros(Interval{Float64}, Chebyshev(order(u₁)+1)^4,Chebyshev(order(u₁)+1)^4)
-    DΦ!(DΦ, project(u, Chebyshev(order(u₁)+1)^4), σ, r)
+    DΦ!(DΦ, project(u, Chebyshev(order(u₁)+1)^4), σ, ρ)
 
     # Constructing operator (Du)ₖ = 2k uₖ
     D = zeros(Interval{Float64}, Chebyshev(order(u₁)), Chebyshev(order(u₁)))
@@ -409,19 +409,19 @@ function psi(u::Sequence, k::Int, ν::Interval{Float64}, m::Int)
 end
 
 # Implementation of the derivative of the logistic map
-function logistic_prime(x::Interval{Float64}, r::Interval{Float64})
-    return interval(1)+r - interval(2)*r*x;
+function logistic_prime(x::Interval{Float64}, ρ::Interval{Float64})
+    return interval(1)+ρ - interval(2)*ρ*x;
 end
 
 # Implementation of Df
-function Df(equilibrium::Vector{Interval{Float64}}, σ::Interval{Float64}, r::Interval{Float64})
+function Df(equilibrium::Vector{Interval{Float64}}, σ::Interval{Float64}, ρ::Interval{Float64})
     i0 = interval(0)
     i1 = interval(1)
     return [
         i0       i1       i0       i0
-        σ^2    i0       -σ^2*logistic_prime(equilibrium[3], r)     i0
+        σ^2    i0       -σ^2*logistic_prime(equilibrium[3], ρ)     i0
         i0       i0       i0       i1
-        -σ^2*logistic_prime(equilibrium[1], r)     i0       σ^2        i0
+        -σ^2*logistic_prime(equilibrium[1], ρ)     i0       σ^2        i0
     ]
 end
 

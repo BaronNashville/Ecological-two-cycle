@@ -8,22 +8,22 @@
 using RadiiPolynomial, DifferentialEquations
 
 # Implementation of the logistic map
-function logistic(x::Float64, r::Float64)
-    return (1+r)*x - r*x^2;
+function logistic(x::Float64, ρ::Float64)
+    return (1+ρ)*x - ρ*x^2;
 end
 
 # Implementation of the derivative of the logistic map
-function logistic_prime(x::Float64, r::Float64)
-    return 1+r - 2*r*x;
+function logistic_prime(x::Float64, ρ::Float64)
+    return 1+ρ - 2*ρ*x;
 end
 
 # Implementation of Df
-function Df(equilibrium::Vector{Float64}, σ::Float64, r::Float64)
+function Df(equilibrium::Vector{Float64}, σ::Float64, ρ::Float64)
     return [
         0       1       0       0
-        σ^2    0       -σ^2*logistic_prime(equilibrium[3], r)     0
+        σ^2    0       -σ^2*logistic_prime(equilibrium[3], ρ)     0
         0       0       0       1
-        -σ^2*logistic_prime(equilibrium[1], r)     0       σ^2        0
+        -σ^2*logistic_prime(equilibrium[1], ρ)     0       σ^2        0
     ]
 end
 
@@ -71,12 +71,12 @@ function distance_from_fixed_points(data)
 end
 
 # Integrating a single point along a vector field similar to f
-function integrate_point(x₀::Vector{Float64}, σ::Float64, r::Float64, Tspan::Tuple{Float64, Float64})
+function integrate_point(x₀::Vector{Float64}, σ::Float64, ρ::Float64, Tspan::Tuple{Float64, Float64})
     f(x,p,t) = [
         x[2]
-        σ*(x[1] - logistic(x[3], r))
+        σ*(x[1] - logistic(x[3], ρ))
         x[4]
-        σ*(x[3] - logistic(x[1], r))
+        σ*(x[3] - logistic(x[1], ρ))
     ]
 
     prob = ODEProblem(f, x₀, Tspan)
@@ -140,16 +140,16 @@ function get_theta(a::Sequence, range::Matrix{Float64}, num_points::Vector{Int},
 end
 
 # Numerical integration of a point along the map f
-function g(X, a::Sequence, σ::Float64, r::Float64)
+function g(X, a::Sequence, σ::Float64, ρ::Float64)
     L = X[1]
     θ₁ = X[2]
     θ₂ = X[3]
 
     f(x,p,t) = [
         x[2]
-        σ*(x[1] - logistic(x[3], r))
+        σ*(x[1] - logistic(x[3], ρ))
         x[4]
-        σ*(x[3] - logistic(x[1], r))
+        σ*(x[3] - logistic(x[1], ρ))
     ]
 
     prob = ODEProblem(f, a(θ₁, θ₂), (L,0))
@@ -159,20 +159,20 @@ function g(X, a::Sequence, σ::Float64, r::Float64)
 end
 
 # Numerical approximation of connection operator
-function w(X, a::Sequence, σ::Float64, r::Float64)
+function w(X, a::Sequence, σ::Float64, ρ::Float64)
     L = X[1]
     θ₁ = X[2]
     θ₂ = X[3]
 
     return [
         θ₁^2 + θ₂^2 - 0.95
-        g(X, a, σ, r)[1] - g(X, a, σ, r)[3]
-        g(X, a, σ, r)[2] + g(X, a, σ, r)[4]
+        g(X, a, σ, ρ)[1] - g(X, a, σ, ρ)[3]
+        g(X, a, σ, ρ)[2] + g(X, a, σ, ρ)[4]
     ]
 end
 
 # Derivative of numerical approximation of connection operator
-function Dw(X, a::Sequence, σ::Float64, r::Float64)
+function Dw(X, a::Sequence, σ::Float64, ρ::Float64)
     h = 1e-6
     A = zeros(3,3)
     Id = [
@@ -182,19 +182,19 @@ function Dw(X, a::Sequence, σ::Float64, r::Float64)
     ]
 
     for i in 1:3
-        A[:,i] = 1/(2*h) * (w(X+h*Id[:,i], a, σ, r)-w(X-h*Id[:,i], a, σ, r))
+        A[:,i] = 1/(2*h) * (w(X+h*Id[:,i], a, σ, ρ)-w(X-h*Id[:,i], a, σ, ρ))
     end
 
     return A
 end
 
 # Finding a numerical candidate for the connection between the stable manifold and Π_R
-function candidate_finder(X, a::Sequence, σ::Float64, r::Float64)
+function candidate_finder(X, a::Sequence, σ::Float64, ρ::Float64)
     L = X[1]
     θ₁ = X[2]
     θ₂ = X[3]
 
-    X, = newton(X -> (w(X, a, σ, r), Dw(X, a, σ, r)), X)
+    X, = newton(X -> (w(X, a, σ, ρ), Dw(X, a, σ, ρ)), X)
 
     return X[1:2],X[3]
 end

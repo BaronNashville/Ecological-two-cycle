@@ -6,13 +6,14 @@
 using IntervalArithmetic
 
 # Implementing the proof for the local stable manifold
-function manif_proof(a::Sequence, N::Vector{Int})  
+function manif_proof(a::Sequence, weights::Vector{Float64}, N::Vector{Int})  
     # Setting some spaces
     ℓ¹ = Ell1(IdentityWeight())    
     higher_space = (Taylor(2*N[1]) ⊗ Taylor(2*N[2]))^4
 
     # Turning everything into an interval
     a = interval.(a)
+    weights = interval.(weights)
 
     # Defining interval variables
     i0 = interval(0)
@@ -21,17 +22,17 @@ function manif_proof(a::Sequence, N::Vector{Int})
     i4 = interval(4)
 
     σ = interval(10)
-    r = @interval(2.2)
+    ρ = @interval(2.2)
 
     # Rigorously computing eigenvalues and eigenvectors
 
     # Two cycle of the logistic map where n₋ < n₊
-    n₋ = (r+i2 - sqrt(r^2 -i4))/(i2*r);
-    n₊ = (r+i2 + sqrt(r^2 -i4))/(i2*r);
+    n₋ = (ρ+i2 - sqrt(ρ^2 -i4))/(i2*ρ);
+    n₊ = (ρ+i2 + sqrt(ρ^2 -i4))/(i2*ρ);
 
     # Evaluating the derivative of the logistic map at n₋ and n₊
-    n₋_prime = i1+r - i2*r*n₋
-    n₊_prime = i1+r - i2*r*n₊
+    n₋_prime = i1+ρ - i2*ρ*n₋
+    n₊_prime = i1+ρ - i2*ρ*n₊
     
     equilibrium = [n₊; i0; n₋; i0];
 
@@ -44,18 +45,18 @@ function manif_proof(a::Sequence, N::Vector{Int})
     ξ₂ = i1/i2norm(ξ₂) * ξ₂
 
     A_dagger = zeros(Interval{Float64}, space(a), space(a))
-    DF_manif!(A_dagger, a, N, σ, r, equilibrium, λ₁, λ₂, ξ₁, ξ₂)
+    DF_manif!(A_dagger, a, N, σ, ρ, equilibrium, λ₁, λ₂, ξ₁, ξ₂)
 
     A = inv(mid.(A_dagger))
     A = interval.(A)
 
     F = zeros(Interval{Float64}, higher_space)
-    F_manif!(F, project(a, higher_space), 2*N, σ, r, equilibrium, λ₁, λ₂, ξ₁, ξ₂)
+    F_manif!(F, project(a, higher_space), 2*N, σ, ρ, equilibrium, λ₁, λ₂, ξ₁, ξ₂)
 
     F_N = project(F, space(a))
 
     DΦ = zeros(Interval{Float64}, higher_space, higher_space)
-    DΦ!(DΦ, project(a, higher_space), σ, r)
+    DΦ!(DΦ, project(a, higher_space), σ, ρ)
 
     # Y₀ Bound
     V = A * F_N
@@ -75,6 +76,7 @@ function manif_proof(a::Sequence, N::Vector{Int})
     end
 
     Y_0_bound = Y_0_finite_part + Y_0_tail
+    Y_0_bound = weights .* Y_0_bound
 
     Y₀ = maximum(Y_0_bound)
 
@@ -93,11 +95,12 @@ function manif_proof(a::Sequence, N::Vector{Int})
 
     for i in 1:4
         for j in 1:4
-            Z_0_bound[i] += opnorm(component(B,i,j), ℓ¹)
+            Z_0_bound[i] += i1 / weights[j] * opnorm(component(B,i,j), ℓ¹)
         end
     end
 
-    Z₀ = maximum(Z_0_bound)
+    Z_0_bound = weights .* Z_0_bound
+    Z₀ = maximum( weights .* Z_0_bound)
 
     if !isguaranteed(Z₀)
         println("Z₀ is not guaranteed")
@@ -112,11 +115,12 @@ function manif_proof(a::Sequence, N::Vector{Int})
 
     for i in 1:4
         for j in 1:4
-            Z_1_bound[i] += opnorm(component(DΦ,i,j), ℓ¹)
+            Z_1_bound[i] += i1 / weights[j] * opnorm(component(DΦ,i,j), ℓ¹)
         end
     end
 
-    Z₁ = (i1/(abs(interval(N[1]+1)*λ₁ + interval(N[2]+1)*λ₂))) * maximum(Z_1_bound)
+    Z_1_bound = weights .* Z_1_bound
+    Z₁ = (i1/(min(abs(interval(N[1]+1)*λ₁), abs(interval(N[2]+1)*λ₂)))) * maximum(Z_1_bound)
 
     if !isguaranteed(Z₁)
         println("Z₁ is not guaranteed")
@@ -130,19 +134,20 @@ function manif_proof(a::Sequence, N::Vector{Int})
     Z_2_bound = interval.([0,0,0,0])
 
     for i in 1:4
-        t1 = opnorm(component(A,i,2), ℓ¹)
+        t1 = i1 / weights[3]^2 * opnorm(component(A,i,2), ℓ¹)
         if i == 2
-            t1 = max(t1, (i1/(abs(interval(N[1]+1)*λ₁ + interval(N[2]+1)*λ₂))))
+            t1 = max(t1, (i1/(min(abs(interval(N[1]+1)*λ₁), abs(interval(N[2]+1)*λ₂)))))
         end
 
-        t2 = opnorm(component(A,i,4), ℓ¹)
+        t2 = i1 / weights[1]^2 * opnorm(component(A,i,4), ℓ¹)
         if i == 4
-            t2 = max(t1, (i1/(abs(interval(N[1]+1)*λ₁ + interval(N[2]+1)*λ₂))))
+            t2 = max(t1, (i1/(min(abs(interval(N[1]+1)*λ₁), abs(interval(N[2]+1)*λ₂)))))
         end
 
-        Z_2_bound[i] = i2*σ^2*r*(t1 + t2)
+        Z_2_bound[i] = i2*σ^2*ρ*(t1 + t2)
     end
 
+    Z_2_bound = weights .* Z_2_bound
     Z₂ = maximum(Z_2_bound)
 
     if !isguaranteed(Z₂)
@@ -174,7 +179,7 @@ function orbit_proof(X::Sequence, a::Sequence, weights::Vector{Float64}, N_cheb:
     δ = interval.(δ)
     r_star = interval.(r_star)
     σ = interval(10)
-    r = @interval(2.2)
+    ρ = @interval(2.2)
 
     L = component(X,1)[1]
     θ = component(X,2)[1:2]
@@ -204,13 +209,13 @@ function orbit_proof(X::Sequence, a::Sequence, weights::Vector{Float64}, N_cheb:
     #Defining Operators
 
     A_dagger = zeros(Interval{Float64}, space(X), space(X))
-    DF_orbit!(A_dagger, X, a, N_cheb, σ, r, δ)
+    DF_orbit!(A_dagger, X, a, N_cheb, σ, ρ, δ)
 
     A = inv(mid.(A_dagger))
     A = interval.(A)
 
     F = zeros(Interval{Float64}, higher_space)
-    F_orbit!(F, project(X, higher_space), a, N_cheb, σ, r, δ)
+    F_orbit!(F, project(X, higher_space), a, N_cheb, σ, ρ, δ)
 
     F_N = project(F, space(X))
 
@@ -307,9 +312,9 @@ function orbit_proof(X::Sequence, a::Sequence, weights::Vector{Float64}, N_cheb:
     # u₂
     component(component(ẑ,3),2)[0] = i1/(ν^interval(N_cheb+1)) * i1/(weights[3+2]) + δ*(θ[1]/(i1 - θ[1])^i2)*i1/(i1-θ[2])* i1/(weights[1+1]) + δ*(θ[2]/(i1 - θ[2])^i2)*i1/(i1-θ[1])* i1/(weights[1+2])
     for k in 1:N_cheb
-        component(component(ẑ,3),2)[k] = L*i2*σ^2*r*(psi(u₃, k+1, ν, N_cheb) + psi(u₃, k-1, ν, N_cheb)) / weights[3+3]
+        component(component(ẑ,3),2)[k] = L*i2*σ^2*ρ*(psi(u₃, k+1, ν, N_cheb) + psi(u₃, k-1, ν, N_cheb)) / weights[3+3]
     end
-    component(component(ẑ,3),2)[N_cheb] += L*σ^2*((i1/weights[3+1] + (i1+r)/weights[3+3]))/(i2*ν^interval(N_cheb+1))
+    component(component(ẑ,3),2)[N_cheb] += L*σ^2*((i1/weights[3+1] + (i1+ρ)/weights[3+3]))/(i2*ν^interval(N_cheb+1))
 
     # u₃
     component(component(ẑ,3),3)[0] = i1/(ν^interval(N_cheb+1)) * i1/(weights[3+3]) + δ*(θ[1]/(i1 - θ[1])^i2)*i1/(i1-θ[2])* i1/(weights[1+1]) + δ*(θ[2]/(i1 - θ[2])^i2)*i1/(i1-θ[1])* i1/(weights[1+2])
@@ -318,9 +323,9 @@ function orbit_proof(X::Sequence, a::Sequence, weights::Vector{Float64}, N_cheb:
     # u₄
     component(component(ẑ,3),4)[0] = i1/(ν^interval(N_cheb+1)) * i1/(weights[3+4]) + δ*(θ[1]/(i1 - θ[1])^i2)*i1/(i1-θ[2])* i1/(weights[1+1]) + δ*(θ[2]/(i1 - θ[2])^i2)*i1/(i1-θ[1])* i1/(weights[1+2])
     for k in 1:N_cheb
-        component(component(ẑ,3),4)[k] = L*i2*σ^2*r*(psi(u₁, k+1, ν, N_cheb) + psi(u₁, k-1, ν, N_cheb)) / weights[3+1]
+        component(component(ẑ,3),4)[k] = L*i2*σ^2*ρ*(psi(u₁, k+1, ν, N_cheb) + psi(u₁, k-1, ν, N_cheb)) / weights[3+1]
     end
-    component(component(ẑ,3),4)[N_cheb] += L*σ^2*((i1/weights[3+3] + (i1+r)/weights[3+1]))/(i2*ν^interval(N_cheb+1))
+    component(component(ẑ,3),4)[N_cheb] += L*σ^2*((i1/weights[3+3] + (i1+ρ)/weights[3+1]))/(i2*ν^interval(N_cheb+1))
 
     V = abs.(A) * ẑ
 
@@ -337,9 +342,9 @@ function orbit_proof(X::Sequence, a::Sequence, weights::Vector{Float64}, N_cheb:
     Z_1_tail = interval.([0,0,0,0,0,0,0])
 
     Z_1_tail[3+1] = norm(u₂, ℓᵥ)/weights[1] + L/weights[3+2]
-    Z_1_tail[3+2] = σ^2*((norm(u₁, ℓᵥ) + (interval(1) + r) * norm(u₃, ℓᵥ) + r*norm(u₃ * u₃, ℓᵥ))/weights[1] + L*(interval(1)/weights[3+1] + (interval(1)+r)/weights[3+3] + interval(2)*r*norm(u₃, ℓᵥ)/weights[3+3]))
+    Z_1_tail[3+2] = σ^2*((norm(u₁, ℓᵥ) + (interval(1) + ρ) * norm(u₃, ℓᵥ) + ρ*norm(u₃ * u₃, ℓᵥ))/weights[1] + L*(interval(1)/weights[3+1] + (interval(1)+ρ)/weights[3+3] + interval(2)*ρ*norm(u₃, ℓᵥ)/weights[3+3]))
     Z_1_tail[3+3] = norm(u₄, ℓᵥ)/weights[1] + L/weights[3+4]
-    Z_1_tail[3+4] = σ^2*((norm(u₃, ℓᵥ) + (interval(1) + r) * norm(u₁, ℓᵥ) + r*norm(u₁ * u₁, ℓᵥ))/weights[1] + L*(interval(1)/weights[3+3] + (interval(1)+r)/weights[3+1] + interval(2)*r*norm(u₁, ℓᵥ)/weights[3+1]))
+    Z_1_tail[3+4] = σ^2*((norm(u₃, ℓᵥ) + (interval(1) + ρ) * norm(u₁, ℓᵥ) + ρ*norm(u₁ * u₁, ℓᵥ))/weights[1] + L*(interval(1)/weights[3+3] + (interval(1)+ρ)/weights[3+1] + interval(2)*ρ*norm(u₁, ℓᵥ)/weights[3+1]))
 
     Z_1_tail = Z_1_tail * ν/(interval(N_cheb)+interval(1))
 
@@ -388,14 +393,14 @@ function orbit_proof(X::Sequence, a::Sequence, weights::Vector{Float64}, N_cheb:
     Ψ_hat = interval.([0,0,0,0,0,0,0])
 
     Φ_hat[3+1] = i1/weights[3+2]
-    Φ_hat[3+2] = σ^2 * ((i1/weights[3+1]+ (i1+r)/weights[3+3] + i2*norm(u₃, ℓᵥ)/weights[3+3] + r_star/weights[3+3]^2))
+    Φ_hat[3+2] = σ^2 * ((i1/weights[3+1]+ (i1+ρ)/weights[3+3] + i2*norm(u₃, ℓᵥ)/weights[3+3] + r_star/weights[3+3]^2))
     Φ_hat[3+3] = i1/weights[3+4]
-    Φ_hat[3+4] = σ^2 * ((i1/weights[3+3]+ (i1+r)/weights[3+1] + i2*norm(u₁, ℓᵥ)/weights[3+1] + r_star/weights[3+1]^2))
+    Φ_hat[3+4] = σ^2 * ((i1/weights[3+3]+ (i1+ρ)/weights[3+1] + i2*norm(u₁, ℓᵥ)/weights[3+1] + r_star/weights[3+1]^2))
 
     Ψ_hat[3+1] = i0
-    Ψ_hat[3+2] = i2*σ^2*r/weights[3+3]^2
+    Ψ_hat[3+2] = i2*σ^2*ρ/weights[3+3]^2
     Ψ_hat[3+3] = i0
-    Ψ_hat[3+4] = i2*σ^2*r/weights[3+1]^2
+    Ψ_hat[3+4] = i2*σ^2*ρ/weights[3+1]^2
 
     Z_2_tail = i2 * ν * (Φ_hat/weights[1] + L*Ψ_hat)
 
